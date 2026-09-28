@@ -1,0 +1,108 @@
+using UnityEngine;
+using UnityEngine.AI;
+
+public class EnemyAI : MonoBehaviour
+{
+    [Header("Settings")]
+    public Transform player;
+    public float detectionRadius = 10.0f;
+    public float attackRadius = 1.5f;
+    public float moveSpeed = 3.5f;
+    public LayerMask obstacleMask;
+
+    [Header("Components")]
+    private NavMeshAgent navAgent;
+
+    private void Awake()
+    {
+        navAgent = GetComponent<NavMeshAgent>();
+        navAgent.speed = moveSpeed;
+    }
+
+    private void Update()
+    {
+        if (player == null) return;
+
+        // 1. Hitung Jarak Euclidean ke Player
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+        // 2. Deteksi Apakah Player Berada Dalam Jangkauan
+        if (distanceToPlayer <= detectionRadius)
+        {
+            // 3. Cek Line of Sight (Apakah ada rintangan/dungeon wall yang menghalangi)
+            if (HasLineOfSight())
+            {
+                // Jika dalam jangkauan serang, berhentikan movement dan serang
+                if (distanceToPlayer <= attackRadius)
+                {
+                    AttackPlayer();
+                }
+                else
+                {
+                    // 4. Cari Jalur & Bergerak Menuju Player (Pathfinding)
+                    MoveToPlayer();
+                }
+            }
+            else
+            {
+                // Tetap cari jalan melintasi tembok menggunakan A* (NavMesh)
+                MoveToPlayer();
+            }
+        }
+        else
+        {
+            StopMoving();
+        }
+    }
+
+    // Menggunakan Raycasting untuk Line of Sight
+    private bool HasLineOfSight()
+    {
+        Vector3 directionToPlayer = (player.position - transform.position).normalized;
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+        // Menembakkan Raycast ke arah player
+        if (Physics.Raycast(transform.position, directionToPlayer, distanceToPlayer, obstacleMask))
+        {
+            // Menabrak rintangan/tembok
+            return false; 
+        }
+
+        return true; // Pandangan bebas tanpa rintangan
+    }
+
+    // Menggunakan Algoritma Pathfinding (A* pada NavMesh) untuk Bergerak
+    private void MoveToPlayer()
+    {
+        if (navAgent != null)
+        {
+            navAgent.isStopped = false;
+            navAgent.SetDestination(player.position); // Mengkalkulasi A* Pathing internal
+        }
+    }
+
+    private void StopMoving()
+    {
+        if (navAgent != null && navAgent.hasPath)
+        {
+            navAgent.isStopped = true;
+        }
+    }
+
+    private void AttackPlayer()
+    {
+        StopMoving();
+        // Logika serangan musuh ke player di sini
+        Debug.Log("Musuh menyerang Player!");
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        // Visualisasi Jangkauan Deteksi & Serang di Editor
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, detectionRadius);
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, attackRadius);
+    }
+}
